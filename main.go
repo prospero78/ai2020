@@ -1,11 +1,11 @@
 package main
 
 import (
+	. "aicup2020/model"
+	. "aicup2020/stream"
 	"bufio"
 	"net"
 	"os"
-	. "aicup2020/model"
-	. "aicup2020/stream"
 	"strconv"
 )
 
