@@ -6,20 +6,26 @@ package strat
 
 import (
 	"aicup2020/model"
-	"aicup2020/strat/builder"
+	"aicup2020/strat/basebuilder"
+	"aicup2020/strat/player"
+	"aicup2020/strat/poolbuilder"
 	"log"
 )
 
 var (
-	Builder *builder.TBuilder
-	myId    int32
+	myId        int32
 )
 
-// SetBuilder -- устанавливает своего строителя на каждом тике
-func SetBuilder(observe *model.PlayerView) (res bool) {
-	myId = observe.MyId
-	log.Printf("self=%v ", myId)
-	getPlayer(observe)
+// MakeTik -- выполняет всю работу в тике
+func MakeTik(observe *model.PlayerView) map[int32]model.EntityAction {
+	getSelf(observe)
+	getBase(observe)
+	poolbuilder.PoolBuilder = poolbuilder.New(observe, basebuilder.Base.GetX(), basebuilder.Base.GetY())
+	infoPlayer(observe)
+	return getAction()
+}
+
+func getBase(observe *model.PlayerView) {
 	for _, obj := range observe.Entities {
 		if obj.PlayerId == nil {
 			continue
@@ -27,50 +33,43 @@ func SetBuilder(observe *model.PlayerView) (res bool) {
 		if *obj.PlayerId != myId {
 			continue
 		}
-		// Получить своего строителя
-		switch obj.EntityType {
-		case model.EntityTypeBuilderUnit:
-			Builder = builder.New(&obj)
-		default:
-			log.Printf("SetBuilder(): unknown type obj(%v)\n", obj.EntityType)
+		if obj.EntityType != model.EntityTypeBuilderBase {
+			continue
 		}
+		// Получить ссылку на свою базу
+		basebuilder.Base = basebuilder.New(obj)
+		//log.Printf("baseBuilder=%v ", basebuilder.Base.Id())
+		return
 	}
-	if Builder == nil {
-		log.Panicf("SetBuilder(): builder==nil\n")
-	}
-	return Builder != nil
 }
 
-// FindFood -- ищет ближайшую еду к строителю
-func FindFoot(observe *model.PlayerView) {
-	var foodNear *model.Entity
-	for _, obj := range observe.Entities {
-		if obj.EntityType == model.EntityTypeResource {
-			if foodNear == nil {
-				foodNear = &obj
-				Builder.SetFood(&obj)
-			}
+func getSelf(observe *model.PlayerView) {
+	myId = observe.MyId
+	for _, obj := range observe.Players {
+		if obj.Id != myId {
+			continue
 		}
-		// Проверить дальность до строителя
-		if Builder.CheckDistFood(&obj) {
-			break
-		}
+		// Получить ссылку на себя
+		player.Player = player.New(&obj)
+		return
 	}
 }
 
 // GetAction -- возвращает, что надо делать
-func GetAction() *model.Action {
+func getAction() map[int32]model.EntityAction {
 	poolAct := make(map[int32]model.EntityAction)
-	poolAct[Builder.Num()] = *Builder.GetAction()
-	act := &model.Action{
-		EntityActions: poolAct,
+	poolActBuilder := poolbuilder.PoolBuilder.GetPoolActions()
+	for key, act := range poolActBuilder {
+		poolAct[key] = act
 	}
-	return act
+	poolActBuilder[basebuilder.Base.Id()] = basebuilder.Base.GetAct()
+	return poolAct
 }
 
 // Выводит статистику по игрокам
-func getPlayer(observe *model.PlayerView) {
-	for _, pl := range observe.Players {
-		log.Printf("getPlayer(): id=%v score=%v resource=%v", pl.Id, pl.Score, pl.Resource)
-	}
+func infoPlayer(observe *model.PlayerView) {
+	log.Printf("infoPlayer(): id=%v score=%v resource=%v", myId, player.Player.Score(), player.Player.Resource())
+	// for _, pl := range observe.Players {
+	// 	log.Printf("infoPlayer(): id=%v score=%v resource=%v", pl.Id, pl.Score, pl.Resource)
+	// }
 }

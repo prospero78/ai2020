@@ -1,8 +1,8 @@
 package main
 
 import (
-	. "aicup2020/model"
 	"bufio"
+	. "aicup2020/model"
 )
 
 type DebugInterface struct {
